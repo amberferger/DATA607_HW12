@@ -1,0 +1,135 @@
+---
+title: "Week 12 - Graph Databases"
+author: "Amber Ferger"
+date: "11/11/2019"
+output: html_document
+---
+
+## Assignment
+For this assignment, you should take information from a relational database and migrate it to a NoSQL database of your own choosing.
+
+For the relational database, you might use the flights database, the tb database, the "data skills" database your team created for Project 3, or another database of your own choosing or creation.
+
+For the NoSQL database, you may use MongoDB (which we introduced in week 7), Neo4j, or another NoSQL database of your choosing.
+
+Your migration process needs to be reproducible.  R code is encouraged, but not required.  You should also briefly describe the advantages and disadvantages of storing the data in a relational database vs. your NoSQL database.
+
+## Importing the Data
+I will be using the tb database for this project. Let's first import the data into our R session: 
+
+```{r, echo = FALSE, warning = FALSE, message=FALSE}
+
+library(RMySQL)
+mydb = dbConnect(MySQL(), user='root', password='password', dbname='tb', host='localhost')
+
+```
+
+``` {r}
+tb <- dbGetQuery(mydb, 'SELECT * FROM tb.tb')
+head(tb)
+
+```
+
+
+
+
+## Storing the data in MongoDB
+I've chosen MongoDB as my NoSQL database. Instructions for using MongoDB can be found here: https://gist.github.com/Btibert3/7751989. 
+
+First, let's connect to the MongoDB and create a collection for our data called "TB_DATA". We'll stored this in a database called tb.
+
+```{r}
+# connect to MongoDB
+library(mongolite)
+con <- mongo(collection = "TB_DATA",db = "tb")
+
+```
+
+Next, let's insert our data into the collection we've created. In order to ensure that there are no duplicates from previous runs, we'll drop the table if it exists. 
+``` {r}
+
+if(con$count() > 0) con$drop()
+con$insert(tb)
+stopifnot(con$count() == nrow(tb))
+
+```
+
+Let's check to see if the data was inserted properly.
+
+``` {r}
+
+con$count() == nrow(tb)
+
+```
+
+Success! 
+
+## Querying the data
+
+For practice, let's play around with some of the mongo querying language. 
+
+We'll pull in only records for China that are greater than 2010.
+
+``` {r}
+
+con$find(
+  query = '{"country" : "China", "year" : { "$gt" : 2010 } }'
+)
+
+```
+
+Let's take this query and only display the country, year, sex, and number of children. 
+
+``` {r}
+
+con$find(
+  query = '{"country" : "China", "year" : { "$gt" : 2010 } }',
+  fields = '{"country" : true, "year" : true, "sex": true, "child" : true, "_id" : false}'
+)
+
+```
+
+We'll take a look at the data in descending order of children. 
+
+``` {r}
+
+con$find(
+  query = '{"country" : "China", "year" : { "$gt" : 2010 } }',
+  fields = '{"country" : true, "year" : true, "sex": true, "child" : true, "_id" : false}',
+  sort = '{"child": -1}'
+)
+
+```
+
+And last, we'll limit this to the top 3 records:
+
+``` {r}
+
+con$find(
+  query = '{"country" : "China", "year" : { "$gt" : 2010 } }',
+  fields = '{"country" : true, "year" : true, "sex": true, "child" : true, "_id" : false}',
+  sort = '{"child": -1}',
+  limit = 3
+)
+
+```
+
+## Pros and Cons of MongoDB
+
+The advantages of NoSQL are the disadvantages of relational databases. Likewise, the disadvantages of NoSQL are the advantages of relational databases. In general, relational databases are ideal for uniformity and standardization and NoSQL databases are great for unstructured data. 
+
+
+The advantages of storing the data in a NoSQL environment are:
+
+- Storing large amounts of unstructured data (ex: free-form text)
+- Storing data that is not consistent from record to record
+- Ease of storing in database without restructuring from source (ex: taking xml from a website)
+- Ability to evolve over time (ex: different structure of data over time)
+
+
+The disadvantages of storing the data in a NoSQL environment are: 
+
+- Lack of standardization - potentially differing data formats from record to record 
+- Inconsistent querying language across NoSQL databases can make it difficult to port code from one database to another
+
+
